@@ -5,11 +5,11 @@ def get_data(path):
   with open(path) as f: 
     lines_after_72 = f.readlines()[72:]
     for line in lines_after_72:
-      features = map(lambda x: float(x), line.split())
+      features = list(map(lambda x: float(x), line.split()))
       X.append(features[:16][1:])
       Y.append(features[16])
       
-  return X, Y
+  return np.array(X), np.array(Y)
 
 def normalize_and_add_ones(X):
   X = np.array(X)
