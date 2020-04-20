@@ -102,7 +102,7 @@ class RidgeRegression:
     return best_LAMBDA
 
 if __name__ == '__main__':
-  X, Y = get_data(path='x28.txt')
+  X, Y = get_data(path='../datasets/x28.txt')
   # normalization
   X = normalize_and_add_ones(X)
   X_train, Y_train = X[:50], Y[:50]
