@@ -90,51 +90,75 @@ class DataReader:
       self._num_epoch += 1
       self._batch_id = 0
       indices = range(len(self._data))
-      random.seed(2018)
-      random.shuffle(indices)
+      np.random.seed(2018)
+      np.random.shuffle(indices)
       self._data, self._labels = self._data[indices], self._labels[indices]
     return self._data[start:end], self._labels[start:end]
 
 def load_dataset():
   train_data_reader = DataReader(
-    data_path='../datasets/20news-train-tfidf.txt',
+    data_path='../datasets/20news-bydate/20news-train-tfidf.txt',
     batch_size=50,
     vocab_size=vocab_size
   )
 
   test_data_reader = DataReader(
-    data_path='../datasets/20news-test-tfidf.txt',
+    data_path='../datasets/20news-bydate/20news-test-tfidf.txt',
     batch_size=50,
     vocab_size=vocab_size
   )
 
   return train_data_reader, test_data_reader
 
-# create a compution graph
-with open('../datasets/20news-bydate/words_idfs.txt') as f:
-  vocab_size = len(f.read().splitlines())
+def save_parameters(name, value, epoch):
+  filename = name.replace(':', '-colon-') + '-epoch-{}.txt'.format(epoch)
+  if len(value.shape) == 1:
+    string_form = ','.join([str(number) for number in value])
+  else:
+    string_form = '\n'.join([','.join([str(number)
+                                       for number in value[row]])
+                             for row in range(value.shape[0])])
 
-mlp = MLP(
-  vocab_size=vocab_size,
-  hidden_size=50
-)
-predited_labels, loss = mlp.build_graph()
-train_op = mlp.trainer(loss=loss, learning_rate=0.1)
+  with open('../saved-paras/' + filename, 'w+') as f:
+    f.write(string_form)
 
-# open a session to run
-with tf.Session() as sess:
-  train_data_reader, test_data_reader = load_dataset()
-  step, MAX_STEP = 0, 1000 ** 2
 
-  sess.run(tf.global_variables_initializer())
-  while step < MAX_STEP:
-    train_data, train_labels = train_data_reader.next_batch()
-    plabels_eval, loss_eval, _ = sess.run(
-      [predicted_labels, loss, train_op],
-      feed_dict={
-        mlp._X: train_data,
-        mlp._real_Y: train_labels
-      }
-    )
-    step += 1
-    print('step: {}, loss: {}'.format(step, loss_eval))
+if __name__ == '__main__':
+
+  # create a compution graph
+  with open('../datasets/20news-bydate/words_idfs.txt') as f:
+    vocab_size = len(f.read().splitlines())
+
+  mlp = MLP(
+    vocab_size=vocab_size,
+    hidden_size=50
+  )
+  predicted_labels, loss = mlp.build_graph()
+  train_op = mlp.trainer(loss=loss, learning_rate=0.1)
+
+  # open a session to run
+  with tf.Session() as sess:
+    train_data_reader, test_data_reader = load_dataset()
+    step, MAX_STEP = 0, 1000 ** 2
+
+    sess.run(tf.global_variables_initializer())
+    while step < MAX_STEP:
+      train_data, train_labels = train_data_reader.next_batch()
+      plabels_eval, loss_eval, _ = sess.run(
+        [predicted_labels, loss, train_op],
+        feed_dict={
+          mlp._X: train_data,
+          mlp._real_Y: train_labels
+        }
+      )
+      step += 1
+      print('step: {}, loss: {}'.format(step, loss_eval))
+
+      trainable_variables = tf.trainable_variables()
+      for variable in trainable_variables:
+        save_parameters(
+          name=variable.name,
+          value=variable.eval(),
+          epoch=train_data_reader._num_epoch
+        )
+
