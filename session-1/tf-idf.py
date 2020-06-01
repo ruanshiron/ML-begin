@@ -41,7 +41,7 @@ def get_tf_idf(data_path):
     sparse_rep = ' '.join(words_tfidfs_normalized)
     data_tf_idf.append((label, doc_id, sparse_rep))
 
-  with open('../datasets/20news-bydate/data_tf_idf.txt', 'w') as f:
+  with open(data_path.replace("-processed", "-tfidf"), 'w') as f:
     f.write('\n'.join([str(label) + '<fff>' + str(doc_id) + '<fff>' + sparse_rep for label, doc_id, sparse_rep in data_tf_idf]))
 
 
@@ -130,5 +130,9 @@ def generate_vocabulary(data_path):
 
 if __name__ == '__main__':
   # gather_20newsgroups_data()
-  # generate_vocabulary("../datasets/20news-bydate/20news-full-processed.txt")
+
+  generate_vocabulary("../datasets/20news-bydate/20news-full-processed.txt")
+
   get_tf_idf("../datasets/20news-bydate/20news-full-processed.txt")
+  get_tf_idf("../datasets/20news-bydate/20news-train-processed.txt")
+  get_tf_idf("../datasets/20news-bydate/20news-test-processed.txt")
