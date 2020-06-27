@@ -89,7 +89,7 @@ class DataReader:
       end = len(self._data)
       self._num_epoch += 1
       self._batch_id = 0
-      indices = range(len(self._data))
+      indices = list(range(len(self._data)))
       np.random.seed(2018)
       np.random.shuffle(indices)
       self._data, self._labels = self._data[indices], self._labels[indices]
@@ -122,6 +122,16 @@ def save_parameters(name, value, epoch):
   with open('../saved-paras/' + filename, 'w+') as f:
     f.write(string_form)
 
+def restore_parameters(name, epoch):
+  filename = name.replace(':', '-colon-') + '-epoch-{}.txt'.format(epoch)
+  with open('../saved-paras/' + filename) as f:
+    lines = f.read().splitlines()
+  if len(lines) == 1:
+    value = [float(number) for number in lines[0].split(',')]
+  else:
+    value = [[float(number) for number in lines[row].split(',')]
+             for row in range(len(lines))]
+  return value
 
 if __name__ == '__main__':
 
@@ -161,4 +171,37 @@ if __name__ == '__main__':
           value=variable.eval(),
           epoch=train_data_reader._num_epoch
         )
+
+  # Đánh giá model trên test data
+  test_data_reader = DataReader(
+    data_path='../datasets/20news-bydate/20news-test-tfidf.txt',
+    batch_size=50,
+    vocab_size=vocab_size
+  )
+  with tf.Session() as sess:
+    epoch = 10
+
+    trainable_variables = tf.trainable_variables()
+    for variable in trainable_variables:
+      saved_value = restore_parameters(variable.name, epoch)
+      assign_op = variable.assign(saved_value)
+      sess.run(assign_op)
+
+    num_true_preds = 0
+    while True:
+      test_data, test_labels = test_data_reader.next_batch()
+      test_plabels_eval = sess.run(
+        predicted_labels,
+        feed_dict={
+          mlp._X: test_data,
+          mlp._real_Y: test_labels
+        }
+      )
+      matches = np.equal(test_plabels_eval, test_labels)
+      num_true_preds += np.sum(matches.astype(float))
+
+      if test_data_reader._batch_id == 0:
+        break
+    print('Epoch:', epoch)
+    print('Accuracy on test data:', num_true_preds / len(test_data_reader._data))
 
