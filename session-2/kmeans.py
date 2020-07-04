@@ -1,5 +1,10 @@
 import numpy as np
 from collections import defaultdict
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from scipy.spatial import distance
 
 class Cluster:
   def __index__(self):
@@ -14,7 +19,7 @@ class Cluster:
 
 class Member:
   def __init__(self, r_d, label=None, doc_id=None):
-    self.r_d = r_d
+    self._r_d = r_d
     self._label = label
     self._doc_id = doc_id
 
@@ -31,7 +36,7 @@ class Kmeans:
       r_d = [0.0 for _ in range(vocab_size)]
       indices_tfidfs = sparse_r_d.split()
       for index_ifidf in indices_tfidfs:
-        index, = int(index_ifidf.split(':')[0])
+        index = int(index_ifidf.split(':')[0])
         tfidf = float(index_ifidf.split(':')[1])
         r_d[index] = tfidf
       return np.array(r_d)
@@ -52,15 +57,13 @@ class Kmeans:
       self._data.append(Member(r_d=r_d, label=label, doc_id=doc_id))
 
   def random_init(self, seed_value):
+    np.random.seed(seed_value)
+    for cluster in self._clusters:
+      cluster._centroid = np.array(np.random.choice(self._data)._r_d)
 
-    return
 
   def compute_similarity(self, member, centroid):
-    distance = np.zeros((member.shape[0], self.num_clusters))
-    for k in range(self.num_clusters):
-      row_norm = numpy.linalg.norm(member - centroid[k, :], axis=1)
-      distance[:, k] = np.square(row_norm)
-    return distance
+    return distance.euclidean(member._r_d, centroid)
 
   def select_cluster_for(self, member):
     best_fit_cluster = None
@@ -75,6 +78,9 @@ class Kmeans:
     return max_similarity
 
   def update_centroid_of(self, cluster):
+    if not cluster._members:
+      return
+
     member_r_ds = [member._r_d for member in cluster._members]
     aver_r_d = np.mean(member_r_ds, axis=0)
     sqrt_sum_sqr = np.sqrt(np.sum(aver_r_d ** 2))
@@ -84,7 +90,7 @@ class Kmeans:
 
   def stopping_condition(self, criterion, threshold):
     criteria = ['centroid', 'similarity', 'max_iters']
-    assert criteria in criteria
+    assert criterion in criteria
     if criterion == 'max_iters':
       if self._iteration >= threshold:
         return True
@@ -133,7 +139,7 @@ class Kmeans:
   def compute_purity(self):
     majority_sum = 0
     for cluster in self._clusters:
-      member_labels = [member.label for member in cluster._members]
+      member_labels = [member._label for member in cluster._members]
       max_count = max([member_labels.count(label) for label in range(20)])
       majority_sum += max_count
     return majority_sum * 1. / len(self._data)
@@ -181,10 +187,31 @@ def load_data(data_path):
 
     _data.append(r_d)
     _labels.append(label)
-  return _data, _labels
+  return np.array(_data), np.array(_labels)
+
+def plot_tsne_pca(data, labels, size=1000):
+  max_label = max(labels)
+  max_items = np.random.choice(range(data.shape[0]), size=size, replace=False)
+
+  pca = PCA(n_components=2).fit_transform(data[max_items, :].todense())
+  tsne = TSNE().fit_transform(PCA(n_components=50).fit_transform(data[max_items, :].todense()))
+
+  idx = np.random.choice(range(pca.shape[0]), size=size, replace=False)
+  label_subset = labels[max_items]
+  label_subset = [cm.hsv(i / max_label) for i in label_subset[idx]]
+
+  f, ax = plt.subplots(1, 2, figsize=(14, 6))
+
+  ax[0].scatter(pca[idx, 0], pca[idx, 1], c=label_subset)
+  ax[0].set_title('PCA Cluster Plot')
+
+  ax[1].scatter(tsne[idx, 0], tsne[idx, 1], c=label_subset)
+  ax[1].set_title('TSNE Cluster Plot')
+
+  plt.show()
 
 def clustering_with_KMeans():
-  data, labels = load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
+  data, _ = load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
   # use csr_matrix to create a sparse matrix with efficient row slicing
   from sklearn.cluster import KMeans
   from scipy.sparse import csr_matrix
@@ -198,6 +225,8 @@ def clustering_with_KMeans():
     random_state=2018
   ).fit(X)
   labels = kmeans.labels_
+
+  plot_tsne_pca(X, labels=labels)
 
 def classifying_with_linear_SVMs():
   def compute_accuracy(predicted_Y, expected_Y):
@@ -219,8 +248,85 @@ def classifying_with_linear_SVMs():
   accuracy = compute_accuracy(predicted_Y=predicted_Y, expected_Y=test_Y)
   print('Accuracy: ', accuracy)
 
+def clustering_with_my_Kmeans():
+  kmeans = Kmeans(10)
+
+  kmeans.load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
+  # kmeans.run(seed_value=2018, criterion='max_iters', threshold=4)
+  # kmeans.run(seed_value=2018, criterion='centroid', threshold=1000)
+  kmeans.run(seed_value=2018, criterion='similarity', threshold=1000)
+
+  purity = kmeans.compute_purity()
+  NMI = kmeans.compute_NMI()
+
+  print('purity: ', purity)
+  print('NMI:    ', NMI)
+
+def plot_my_Kmeans_by_num_cluster():
+  num_clusters_values = list(range(2,21,2))
+  purity_NMI = []
+  for i in num_clusters_values:
+    kmeans = Kmeans(i)
+    kmeans.load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
+    kmeans.run(seed_value=2018, criterion='similarity', threshold=1000)
+    purity = kmeans.compute_purity()
+    NMI = kmeans.compute_NMI()
+    purity_NMI.append([purity, NMI])
+
+  # plot
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  ax.plot(num_clusters_values, purity_NMI)
+  ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0.,
+            labels=['purity', 'NMI'])
+  ax.set_xlabel('Number of Clusters')
+  ax.set_ylabel('Purity and NMI')
+  ax.set_title('KMeans')
+  ax.axis('tight')
+  plt.subplots_adjust(right=0.8)
+  plt.show()
+
+def plot_classifying_SVMs_Accuracy_by_C():
+  def compute_accuracy(predicted_Y, expected_Y):
+    matches = np.equal(predicted_Y, expected_Y)
+    accuracy = np.sum(matches.astype(float)) / len(expected_Y)
+    return accuracy
+
+  train_X, train_Y = load_data(data_path='../datasets/20news-bydate/20news-train-tfidf.txt')
+  test_X, test_Y = load_data(data_path='../datasets/20news-bydate/20news-test-tfidf.txt')
+
+  from sklearn.svm import LinearSVC
+
+  C_values = list(range(1, 21, 2))
+  accuracies = []
+  for c in C_values:
+    classifier = LinearSVC(
+      C=float(c),
+      tol=0.001,
+      verbose=False
+    )
+    classifier.fit(train_X, train_Y)
+    predicted_Y = classifier.predict(test_X)
+    accuracy = compute_accuracy(predicted_Y=predicted_Y, expected_Y=test_Y)
+    accuracies.append(accuracy)
+
+  # plot
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  ax.plot(C_values, accuracies)
+  ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0.,
+            labels=['accuracy'])
+  ax.set_xlabel('C')
+  ax.set_ylabel('Accuracy')
+  ax.set_title('SVC')
+  ax.axis('tight')
+  plt.subplots_adjust(right=0.8)
+  plt.show()
+
 if __name__ == '__main__':
   # clustering_with_KMeans()
-  classifying_with_linear_SVMs()
-
+  # classifying_with_linear_SVMs()
+  # clustering_with_my_Kmeans()
+  # plot_my_Kmeans_by_num_cluster()
+  plot_classifying_SVMs_Accuracy_by_C()
 
