@@ -1,8 +1,11 @@
 import tensorflow.compat.v1 as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 tf.disable_eager_execution()
 NUM_CLASSES = 4
+
+prefix_path = '..'
 
 class MLP:
   def __init__(self, vocab_size, hidden_size):
@@ -97,13 +100,13 @@ class DataReader:
 
 def load_dataset():
   train_data_reader = DataReader(
-    data_path='../datasets/20news-bydate/20news-train-tfidf.txt',
+    data_path=prefix_path + '/datasets/20news-bydate/20news-train-tfidf.txt',
     batch_size=50,
     vocab_size=vocab_size
   )
 
   test_data_reader = DataReader(
-    data_path='../datasets/20news-bydate/20news-test-tfidf.txt',
+    data_path=prefix_path + '/datasets/20news-bydate/20news-test-tfidf.txt',
     batch_size=50,
     vocab_size=vocab_size
   )
@@ -119,12 +122,12 @@ def save_parameters(name, value, epoch):
                                        for number in value[row]])
                              for row in range(value.shape[0])])
 
-  with open('../saved-paras/' + filename, 'w+') as f:
+  with open(prefix_path + '/saved-paras/' + filename, 'w+') as f:
     f.write(string_form)
 
 def restore_parameters(name, epoch):
   filename = name.replace(':', '-colon-') + '-epoch-{}.txt'.format(epoch)
-  with open('../saved-paras/' + filename) as f:
+  with open(prefix_path + '/saved-paras/' + filename) as f:
     lines = f.read().splitlines()
   if len(lines) == 1:
     value = [float(number) for number in lines[0].split(',')]
@@ -133,10 +136,9 @@ def restore_parameters(name, epoch):
              for row in range(len(lines))]
   return value
 
-if __name__ == '__main__':
-
+def train_data():
   # create a compution graph
-  with open('../datasets/20news-bydate/words_idfs.txt') as f:
+  with open(prefix_path + '/datasets/20news-bydate/words_idfs.txt') as f:
     vocab_size = len(f.read().splitlines())
 
   mlp = MLP(
@@ -172,9 +174,20 @@ if __name__ == '__main__':
           epoch=train_data_reader._num_epoch
         )
 
+def rate_model_by_test_data():
+  # create a compution graph
+  with open(prefix_path + '/datasets/20news-bydate/words_idfs.txt') as f:
+    vocab_size = len(f.read().splitlines())
+
+  mlp = MLP(
+    vocab_size=vocab_size,
+    hidden_size=50
+  )
+  predicted_labels, loss = mlp.build_graph()
+
   # Đánh giá model trên test data
   test_data_reader = DataReader(
-    data_path='../datasets/20news-bydate/20news-test-tfidf.txt',
+    data_path=prefix_path + '/datasets/20news-bydate/20news-test-tfidf.txt',
     batch_size=50,
     vocab_size=vocab_size
   )
@@ -205,3 +218,69 @@ if __name__ == '__main__':
     print('Epoch:', epoch)
     print('Accuracy on test data:', num_true_preds / len(test_data_reader._data))
 
+def plot_rate_model_by_epoch():
+  # create a compution graph
+  with open(prefix_path + '/datasets/20news-bydate/words_idfs.txt') as f:
+    vocab_size = len(f.read().splitlines())
+
+  mlp = MLP(
+    vocab_size=vocab_size,
+    hidden_size=50
+  )
+  predicted_labels, loss = mlp.build_graph()
+
+  # Đánh giá model trên test data
+  test_data_reader = DataReader(
+    data_path=prefix_path + '/datasets/20news-bydate/20news-test-tfidf.txt',
+    batch_size=50,
+    vocab_size=vocab_size
+  )
+
+  epoch_values = list(range(1, 11))
+  accuracy_values = []
+
+  for e in epoch_values:
+    with tf.Session() as sess:
+      epoch = e
+
+      trainable_variables = tf.trainable_variables()
+      for variable in trainable_variables:
+        saved_value = restore_parameters(variable.name, epoch)
+        assign_op = variable.assign(saved_value)
+        sess.run(assign_op)
+
+      num_true_preds = 0
+      while True:
+        test_data, test_labels = test_data_reader.next_batch()
+        test_plabels_eval = sess.run(
+          predicted_labels,
+          feed_dict={
+            mlp._X: test_data,
+            mlp._real_Y: test_labels
+          }
+        )
+        matches = np.equal(test_plabels_eval, test_labels)
+        num_true_preds += np.sum(matches.astype(float))
+
+        if test_data_reader._batch_id == 0:
+          break
+      accuracy = num_true_preds / len(test_data_reader._data)
+      accuracy_values.append(accuracy)
+
+  # plot
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  ax.plot(epoch_values, accuracy_values)
+  ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0.,
+            labels=['accuracy'])
+  ax.set_xlabel('Epoch')
+  ax.set_ylabel('Accuracy')
+  ax.set_title('Multilayer Preceptron')
+  ax.axis('tight')
+  plt.subplots_adjust(right=0.8)
+  plt.show()
+
+if __name__ == '__main__':
+  # train_data()
+  # rate_model_by_test_data()
+  plot_rate_model_by_epoch()
