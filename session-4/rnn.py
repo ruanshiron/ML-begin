@@ -7,6 +7,8 @@ import numpy as np
 
 tf.disable_eager_execution()
 
+prefix_path = '..'
+
 MAX_DOC_LENGTH = 500
 NUM_CLASSES = 4
 unknown_ID = 1
@@ -40,7 +42,7 @@ def gen_data_and_vocab():
 
   word_count = defaultdict(int)
 
-  path = '../datasets/20news-bydate/'
+  path = prefix_path + '/datasets/20news-bydate/'
   parts = [path + dir_name + '/' for dir_name in listdir(path)
            if not isfile(path + dir_name)]
 
@@ -59,7 +61,7 @@ def gen_data_and_vocab():
   vocab = [word for word, freq in
            zip(word_count.keys(), word_count.values()) if freq > 10]
   vocab.sort()
-  with open('../datasets/w2v/vocab-raw.txt', 'w') as f:
+  with open(prefix_path + '/datasets/w2v/vocab-raw.txt', 'w') as f:
     f.write('\n'.join(vocab))
 
   test_data = collect_data_from(
@@ -67,10 +69,10 @@ def gen_data_and_vocab():
     newsgroup_list=newsgroup_list
   )
 
-  with open('../datasets/w2v/20news-train-raw.txt', 'w') as f:
+  with open(prefix_path + '/datasets/w2v/20news-train-raw.txt', 'w') as f:
     f.write('\n'.join(train_data))
 
-  with open('../datasets/w2v/20news-test-raw.txt', 'w') as f:
+  with open(prefix_path + '/datasets/w2v/20news-test-raw.txt', 'w') as f:
     f.write('\n'.join(test_data))
 
 def encode_data(data_path, vocab_path):
@@ -272,7 +274,7 @@ class RNN:
     return train_op
 
 def train_and_evaluate_RNN():
-  with open('../datasets/w2v/vocab-raw.txt') as f:
+  with open(prefix_path + '/datasets/w2v/vocab-raw.txt') as f:
     vocab_size = len(f.read().splitlines())
 
   tf.set_random_seed(2018)
@@ -287,17 +289,17 @@ def train_and_evaluate_RNN():
 
   with tf.Session() as sess:
     train_data_reader = DataReader(
-      data_path='../datasets/w2v/20news-train-encoded.txt',
+      data_path=prefix_path + '/datasets/w2v/20news-train-encoded.txt',
       batch_size=50
     )
 
     test_data_reader = DataReader(
-      data_path='../datasets/w2v/20news-test-encoded.txt',
+      data_path=prefix_path + '/datasets/w2v/20news-test-encoded.txt',
       batch_size=50
     )
 
     step = 0
-    MAX_STEP = 100 ** 2
+    MAX_STEP = 1000
 
     sess.run(tf.global_variables_initializer())
     while (step < MAX_STEP):
@@ -343,7 +345,7 @@ def train_and_evaluate_RNN():
 if __name__ == '__main__':
   # Xử lý dữ liệu
   # gen_data_and_vocab()
-  # encode_data('../datasets/w2v/20news-train-raw.txt', '../datasets/w2v/vocab-raw.txt')
-  # encode_data('../datasets/w2v/20news-test-raw.txt', '../datasets/w2v/vocab-raw.txt')
+  # encode_data(prefix_path + '/datasets/w2v/20news-train-raw.txt', prefix_path + '/datasets/w2v/vocab-raw.txt')
+  # encode_data(prefix_path + '/datasets/w2v/20news-test-raw.txt', prefix_path + '/datasets/w2v/vocab-raw.txt')
 
   train_and_evaluate_RNN()
