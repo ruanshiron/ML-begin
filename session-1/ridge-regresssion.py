@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def get_data(path):
   X, Y = [], []
@@ -37,7 +38,7 @@ class RidgeRegression:
     ).dot(X_train.transpose()).dot(Y_train)
     return W
 
-  def fit_gradient_descent(self, X_train, Y_train, LAMBDA, learning_rate, max_num_epoch=100, batch_size=125):
+  def fit_gradient_descent(self, X_train, Y_train, LAMBDA, learning_rate=0.01, max_num_epoch=100, batch_size=125):
     W = np.random.randn(X_train.shape[1])
     last_loss = 10e+8
     for ep in range(max_num_epoch):
@@ -45,7 +46,7 @@ class RidgeRegression:
       np.random.shuffle(arr)
       X_train = X_train[arr]
       Y_train = Y_train[arr]
-      total_minibatch = int(np.ceil(X_train.shape[0/batch_size]))
+      total_minibatch = int(np.ceil(X_train.shape[int(0/batch_size)]))
       for i in range(total_minibatch):
         index = i * batch_size
         X_train_sub = X_train[index:index+batch_size]
@@ -99,7 +100,7 @@ class RidgeRegression:
     )]
 
     best_LAMBDA, minimum_RSS = range_scan(best_LAMBDA=best_LAMBDA, minimum_RSS=minimum_RSS, LAMBDA_values=LAMBDA_values)
-    return best_LAMBDA
+    return best_LAMBDA, LAMBDA_values
 
 if __name__ == '__main__':
   X, Y = get_data(path='../datasets/x28.txt')
@@ -109,10 +110,29 @@ if __name__ == '__main__':
   X_test, Y_test = X[50:], Y[50:]
 
   ridge_regression = RidgeRegression()
-  best_LAMBDA = ridge_regression.get_the_best_LAMBDA(X_train, Y_train)
+  best_LAMBDA, LAMBDA_values = ridge_regression.get_the_best_LAMBDA(X_train, Y_train)
   print('Best LAMBDA: ', best_LAMBDA)
-  W_learned = ridge_regression.fit(
+  W_learned = ridge_regression.fit( #fit_gradient_descent(
     X_train=X_train, Y_train=Y_train, LAMBDA=best_LAMBDA
   )
   Y_predicted =  ridge_regression.predict(W=W_learned, X_new=X_test)
   print(ridge_regression.compute_RSS(Y_new=Y_test, Y_predicted=Y_predicted))
+
+  # plot
+  coef = []
+  for l in LAMBDA_values:
+    W = ridge_regression.fit( #fit_gradient_descent(
+      X_train=X_train, Y_train=Y_train, LAMBDA=l
+    )
+    coef.append(W)
+
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  ax.plot(LAMBDA_values, coef)
+  ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0., labels=['W0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15'])
+  ax.set_xlabel('Alpha (LAMBDA)')
+  ax.set_ylabel('Beta (Predictor Coefficients)')
+  ax.set_title('Ridge Coefficients vs Regularization Parameters')
+  ax.axis('tight')
+  plt.subplots_adjust(right=0.8)
+  plt.show()
