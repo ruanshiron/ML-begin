@@ -10,7 +10,7 @@ tf.disable_eager_execution()
 prefix_path = '..'
 
 MAX_DOC_LENGTH = 500
-NUM_CLASSES = 4
+NUM_CLASSES = 20
 unknown_ID = 1
 padding_ID = 0
 
