@@ -63,7 +63,10 @@ class Kmeans:
 
 
   def compute_similarity(self, member, centroid):
-    return distance.euclidean(member._r_d, centroid)
+    dis = distance.euclidean(member._r_d, centroid)
+    if (dis == 0):
+      return float('inf')
+    return 1 / dis
 
   def select_cluster_for(self, member):
     best_fit_cluster = None
@@ -147,19 +150,19 @@ class Kmeans:
   def compute_NMI(self):
     I_value, H_omega, H_C, N = 0., 0., 0., len(self._data)
     for cluster in self._clusters:
-      wk = len(cluster._members) * 1
+      wk = len(cluster._members) * 1.
       H_omega += - wk / N * np.log10(wk/N)
       member_labels = [member._label
                        for member in cluster._members]
       for label in range(20):
-        wk_cj = member_labels.count(label) * 1
+        wk_cj = member_labels.count(label) * 1.
         cj = self._label_count[label]
         I_value += wk_cj / N * \
                    np.log10(N * wk_cj / (wk * cj) + 1e-12)
-      for label in range(20):
-        cj = self._label_count[label] * 1
-        H_C += - cj / N * np.log10(cj / N)
-      return I_value * 2. / (H_omega + H_C)
+    for label in range(20):
+      cj = self._label_count[label] * 1.
+      H_C += - cj / N * np.log10(cj / N)
+    return I_value * 2. / (H_omega + H_C)
 
 def load_data(data_path):
   def sparse_to_dense(sparse_r_d, vocab_size):
@@ -211,7 +214,7 @@ def plot_tsne_pca(data, labels, size=1000):
   plt.show()
 
 def clustering_with_KMeans():
-  data, _ = load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
+  data, true_labels  = load_data(data_path='../datasets/20news-bydate/20news-full-tfidf.txt')
   # use csr_matrix to create a sparse matrix with efficient row slicing
   from sklearn.cluster import KMeans
   from scipy.sparse import csr_matrix
@@ -226,7 +229,11 @@ def clustering_with_KMeans():
   ).fit(X)
   labels = kmeans.labels_
 
-  plot_tsne_pca(X, labels=labels)
+  from sklearn.metrics.cluster import normalized_mutual_info_score
+  nmi = normalized_mutual_info_score(true_labels, labels)
+  print(nmi)
+
+  # plot_tsne_pca(X, labels=labels)
 
 def classifying_with_linear_SVMs():
   def compute_accuracy(predicted_Y, expected_Y):
@@ -326,7 +333,7 @@ def plot_classifying_SVMs_Accuracy_by_C():
 if __name__ == '__main__':
   # clustering_with_KMeans()
   # classifying_with_linear_SVMs()
-  # clustering_with_my_Kmeans()
+  clustering_with_my_Kmeans()
   # plot_my_Kmeans_by_num_cluster()
-  plot_classifying_SVMs_Accuracy_by_C()
+  # plot_classifying_SVMs_Accuracy_by_C()
 
